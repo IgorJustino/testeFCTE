@@ -1,0 +1,7 @@
+nohup: ignorando entrada
+Watching for file changes with StatReloader
+[12/Nov/2025 19:03:51] "POST /api/products/create/ HTTP/1.1" 200 163
+[12/Nov/2025 19:05:22] "POST /api/products/create/ HTTP/1.1" 200 155
+[12/Nov/2025 19:09:16] "GET /api/products/ HTTP/1.1" 200 1722
+Not Found: /favicon.ico
+[12/Nov/2025 19:09:16] "GET /favicon.ico HTTP/1.1" 404 2983
