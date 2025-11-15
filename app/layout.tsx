@@ -1,13 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { AuthProvider } from "@/hooks/use-auth"
 import "./globals.css"
-
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "AquiTemFCTE - Marketplace da Comunidade",
@@ -23,9 +20,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <AuthProvider>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

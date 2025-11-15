@@ -14,7 +14,7 @@ export default function LoginPage() {
                 <span className="text-3xl font-bold text-orange-500">@</span>
               </div>
               <h1 className="text-3xl font-bold text-gray-900">Acesse sua Conta</h1>
-              <p className="text-sm text-gray-600">Ou use seu email institucional para fazer login.</p>
+              <p className="text-sm text-gray-600">Use seu email institucional para fazer login.</p>
             </div>
 
             <LoginForm />

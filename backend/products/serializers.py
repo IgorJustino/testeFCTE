@@ -1,37 +1,25 @@
 from rest_framework import serializers
-from .models import Product, ProductImage
-
-
-class ProductImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductImage
-        fields = ['id', 'image', 'order']
-
+from .models import Product
 
 class ProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
-    seller_name = serializers.CharField(source='seller.first_name', read_only=True)
     seller_username = serializers.CharField(source='seller.username', read_only=True)
+    all_images = serializers.SerializerMethodField()
+    main_image = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
-            'id', 'title', 'description', 'price', 'category', 
-            'condition', 'status', 'location', 'views',
-            'created_at', 'updated_at', 'images',
-            'seller_name', 'seller_username'
+            'id', 'title', 'description', 'price', 'campus', 'status',
+            'seller', 'seller_username', 'created_at', 'updated_at',
+            'image_url', 'image_2_url', 'image_3_url', 'image_4_url', 'image_5_url',
+            'all_images', 'main_image'
         ]
-        read_only_fields = ['views', 'created_at', 'updated_at']
-
-
-class ProductListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listagem de produtos"""
-    seller_name = serializers.CharField(source='seller.first_name', read_only=True)
+        read_only_fields = ('seller', 'created_at', 'updated_at', 'all_images', 'main_image')
     
-    class Meta:
-        model = Product
-        fields = [
-            'id', 'title', 'price', 'category', 
-            'condition', 'location', 'views',
-            'created_at', 'seller_name'
-        ]
+    def get_all_images(self, obj):
+        """Retorna todas as imagens do produto"""
+        return obj.get_all_images()
+    
+    def get_main_image(self, obj):
+        """Retorna imagem principal"""
+        return obj.get_main_image()

@@ -12,15 +12,19 @@ import { useEffect, useState } from "react"
 interface Product {
   id: number
   title: string
-  price: number
-  category: string
-  condition: string
-  location: string
+  price: string
+  campus: string
+  status: string
   description: string
-  seller_name: string
+  seller: number
   seller_username: string
+  image_url?: string
+  image_2_url?: string
+  image_3_url?: string
+  image_4_url?: string
+  image_5_url?: string
   created_at: string
-  views: number
+  all_images?: string[]
 }
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +45,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     const loadProduct = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8004/api/products/${productId}/`)
+        // Corrigido para usar Django API
+        const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}/`)
         
         if (!response.ok) {
           notFound()
@@ -49,6 +54,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         }
         
         const product = await response.json()
+        console.log('=== PRODUTO CARREGADO ===')
+        console.log('Product:', product)
+        console.log('Image URL:', product.image_url)
+        console.log('All images:', product.all_images)
         setProduct(product)
       } catch (error) {
         console.error('Erro ao carregar produto:', error)
@@ -95,24 +104,34 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-4">
               <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                 <img
-                  src="/placeholder.svg?height=400&width=400"
+                  src={product.image_url || "/placeholder.svg"}
                   alt={product.title}
                   className="w-full h-full object-cover"
+                  onLoad={(e) => console.log('✅ Imagem carregada:', (e.target as HTMLImageElement).src)}
+                  onError={(e) => console.error('❌ Erro ao carregar imagem:', (e.target as HTMLImageElement).src)}
+                  crossOrigin="anonymous"
                 />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                {/* Placeholder para futuras imagens */}
-                {[1, 2, 3].map((index) => (
+                {/* Mostrar imagens adicionais se existirem */}
+                {[product.image_2_url, product.image_3_url, product.image_4_url].filter(Boolean).slice(0, 3).map((imageUrl, index) => (
                   <div
                     key={index}
                     className="aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-opacity"
                   >
                     <img
-                      src="/placeholder.svg?height=150&width=150"
-                      alt={`${product.title} - imagem ${index + 1}`}
+                      src={imageUrl || "/placeholder.svg"}
+                      alt={`${product.title} - imagem ${index + 2}`}
                       className="w-full h-full object-cover"
                     />
                   </div>
+                ))}
+                {/* Preencher com placeholders se necessário */}
+                {Array.from({ length: Math.max(0, 3 - [product.image_2_url, product.image_3_url, product.image_4_url].filter(Boolean).length) }).map((_, index) => (
+                  <div
+                    key={`placeholder-${index}`}
+                    className="aspect-square rounded-lg overflow-hidden bg-muted/50"
+                  />
                 ))}
               </div>
             </div>
@@ -121,10 +140,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-6">
               <div>
                 <Badge variant="secondary" className="mb-3">
-                  {product.category}
+                  {product.campus}
                 </Badge>
                 <h1 className="text-3xl font-bold mb-2">{product.title}</h1>
-                <p className="text-4xl font-bold text-primary">R$ {product.price.toFixed(2)}</p>
+                <p className="text-4xl font-bold text-primary">R$ {Number(product.price).toFixed(2)}</p>
               </div>
 
               <Separator />
@@ -132,15 +151,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  <span>{product.location}</span>
+                  <span>{product.campus}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   <span>Publicado em {new Date(product.created_at).toLocaleDateString("pt-BR")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="font-semibold">Condição:</span>
-                  <span className="text-muted-foreground">{product.condition}</span>
+                  <span className="font-semibold">Status:</span>
+                  <span className="text-muted-foreground">{product.status === 'disponivel' ? 'Disponível' : 'Indisponível'}</span>
                 </div>
               </div>
 
@@ -158,13 +177,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <h3 className="font-semibold">Vendedor</h3>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg" alt={product.seller_name} />
-                    <AvatarFallback>{product.seller_name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src="/placeholder.svg" alt={product.seller_username} />
+                    <AvatarFallback>{product.seller_username.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{product.seller_name}</p>
+                    <p className="font-semibold">{product.seller_username}</p>
                     <p className="text-sm text-muted-foreground">
-                      @{product.seller_username} • {product.views} visualizações
+                      Usuário #{product.seller}
                     </p>
                   </div>
                 </div>

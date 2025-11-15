@@ -1,9 +1,8 @@
 from django.urls import path
-from django.views.decorators.csrf import csrf_exempt
-from . import views
+from .views import ProductListCreateView, ProductDetailView, upload_product_image
 
 urlpatterns = [
-    path('products/', views.products_list, name='products_list'),
-    path('products/create/', csrf_exempt(views.create_product), name='create_product'),
-    path('products/<int:pk>/', views.product_detail, name='product_detail'),
+    path('', ProductListCreateView.as_view(), name='product-list-create'),
+    path('<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
+    path('<int:product_id>/upload-image/', upload_product_image, name='product-upload-image'),
 ]

@@ -9,9 +9,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { useEffect, useState } from "react"
-import { apiClient, type Product } from "@/lib/api"
+import { AuthGuard } from "@/components/auth-guard"
+
+interface Product {
+  id: number
+  title: string
+  price: string
+  image_url?: string
+  campus: string
+  status: string
+  seller: number
+  views?: number
+}
+
 export default function DashboardPage() {
-  const { user, isLoggedIn } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const [myProducts, setMyProducts] = useState<Product[]>([])
   const [recentMessages, setRecentMessages] = useState<any[]>([])
   const [stats, setStats] = useState({
@@ -22,6 +34,14 @@ export default function DashboardPage() {
   })
   const [loading, setLoading] = useState(true)
 
+  // Debug - vamos ver o que está acontecendo
+  useEffect(() => {
+    console.log('Dashboard: user =', user)
+    console.log('Dashboard: profile =', profile)
+    console.log('Dashboard: authLoading =', authLoading)
+    console.log('Dashboard: localStorage =', localStorage.getItem('django_user'))
+  }, [user, profile, authLoading])
+
   useEffect(() => {
     if (user) {
       loadDashboardData()
@@ -29,22 +49,39 @@ export default function DashboardPage() {
   }, [user])
 
   const loadDashboardData = async () => {
+    if (!user) return
+    
     try {
-      // Load user's products
-      const response = await apiClient.getProducts() as { results: Product[] }
-      const userProducts = response.results.filter(
-        (product: Product) => product.seller_username === user?.username
-      )
-      setMyProducts(userProducts)
+      // Load user's products from Django API
+      const response = await fetch(`http://127.0.0.1:8000/api/products/?seller_id=${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        activeListings: userProducts.length,
-        totalSales: 0, // TODO: implement sales tracking
-        favorites: 0, // TODO: implement favorites
-        messages: 0, // TODO: implement messaging
-      }))
+      if (response.ok) {
+        const data = await response.json()
+        const userProducts = data.results || [] // Django pagination
+        
+        console.log('=== PRODUTOS DO DASHBOARD ===')
+        console.log('Products:', userProducts)
+        userProducts.forEach((produto: any) => {
+          console.log(`Produto ${produto.id}: ${produto.title}`)
+          console.log(`Image URL: ${produto.image_url}`)
+        })
+        
+        setMyProducts(userProducts)
+        setStats(prev => ({
+          ...prev,
+          activeListings: userProducts.length,
+          totalSales: 0, // TODO: implement total sales tracking
+          favorites: 0, // TODO: implement favorites
+          messages: 0, // TODO: implement messaging
+        }))
+      } else {
+        console.error('Erro ao carregar produtos:', response.statusText)
+      }
       
       // TODO: Load real messages when messaging system is complete
       setRecentMessages([])
@@ -56,15 +93,40 @@ export default function DashboardPage() {
     }
   }
 
-  if (!isLoggedIn || !user) {
+  return (
+    <AuthGuard>
+      <DashboardContent 
+        user={user!} 
+        profile={profile} 
+        myProducts={myProducts}
+        recentMessages={recentMessages}
+        stats={stats}
+        loading={loading}
+      />
+    </AuthGuard>
+  )
+}
+
+function DashboardContent({ 
+  user, 
+  profile, 
+  myProducts, 
+  recentMessages, 
+  stats, 
+  loading 
+}: {
+  user: any
+  profile: any
+  myProducts: any[]
+  recentMessages: any[]
+  stats: any
+  loading: boolean
+}) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Acesso Restrito</h1>
-          <p className="text-muted-foreground mb-4">Você precisa fazer login para acessar o dashboard.</p>
-          <Button asChild>
-            <Link href="/entrar">Fazer Login</Link>
-          </Button>
+          <p>Carregando dashboard...</p>
         </div>
       </div>
     )
@@ -77,11 +139,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 border-2 border-primary-foreground">
-                <AvatarImage src="/student-avatar.png" alt={user.first_name} />
-                <AvatarFallback>{user.first_name?.charAt(0) || user.username.charAt(0)}</AvatarFallback>
+                <AvatarImage src={profile?.avatar_url || "/student-avatar.png"} alt={user?.name || "Usuário"} />
+                <AvatarFallback>{user?.name?.charAt(0) || user.email?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-2xl font-bold">Olá, {user.first_name || user.username}</h1>
+                <h1 className="text-2xl font-bold">Olá, {user?.name || "Usuário"}</h1>
                 <p className="text-primary-foreground/80">Bem-vindo ao seu dashboard</p>
               </div>
             </div>
@@ -173,7 +235,7 @@ export default function DashboardPage() {
                     <CardContent className="p-4 space-y-4">
                       <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                         <img
-                          src={product.images?.[0] || "/placeholder.svg"}
+                          src={product.image_url || "/placeholder.svg"}
                           alt={product.title}
                           className="w-full h-full object-cover"
                         />
@@ -182,21 +244,21 @@ export default function DashboardPage() {
                         <div className="flex items-start justify-between gap-2">
                           <h3 className="font-semibold line-clamp-1">{product.title}</h3>
                           <Badge variant="default">
-                            Ativo
+                            {product.status === 'disponivel' ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </div>
-                        <p className="text-xl font-bold text-primary">R$ {product.price.toFixed(2)}</p>
+                        <p className="text-xl font-bold text-primary">R$ {Number(product.price).toFixed(2)}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <TrendingUp className="h-4 w-4" />
-                          <span>{product.views} visualizações</span>
+                          <span>{product.views || 0} visualizações</span>
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <Button asChild variant="outline" className="flex-1 bg-transparent" size="sm">
                           <Link href={`/marketplace/${product.id}`}>Ver</Link>
                         </Button>
-                        <Button variant="outline" className="flex-1 bg-transparent" size="sm">
-                          Editar
+                        <Button asChild variant="outline" className="flex-1 bg-transparent" size="sm">
+                          <Link href={`/marketplace/${product.id}/editar`}>Editar</Link>
                         </Button>
                       </div>
                     </CardContent>
@@ -256,15 +318,15 @@ export default function DashboardPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Nome Completo</label>
-                    <p className="text-muted-foreground">João Silva</p>
+                    <p className="text-muted-foreground">{user?.name || 'Não informado'}</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <p className="text-muted-foreground">joao.silva@aluno.ufrb.edu.br</p>
+                    <p className="text-muted-foreground">{user?.email}</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Campus</label>
-                    <p className="text-muted-foreground">Cruz das Almas</p>
+                    <p className="text-muted-foreground">{profile?.campus || 'Não informado'}</p>
                   </div>
                   <Button variant="outline">Editar Perfil</Button>
                 </CardContent>

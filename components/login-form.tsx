@@ -1,64 +1,57 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Mail, Lock } from "lucide-react"
-import { apiClient } from "@/lib/api"
+import { useAuth } from "@/hooks/use-auth"
 
 export function LoginForm() {
+  const { signIn, loading } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setIsLoading(true)
 
     if (!email || !password) {
       setError("Por favor, preencha todos os campos.")
-      setIsLoading(false)
       return
     }
 
     try {
-      // Use optimized API client
-      const result = await apiClient.login({ email, password }) as { 
-        success: boolean; 
-        user?: any; 
-        message?: string 
+      const { data, error } = await signIn(email, password)
+
+      if (error) {
+        // Normalizar erro - pode ser string ou objeto
+        const errorMessage = typeof error === 'string' ? error : (error?.message || error?.toString() || 'Erro desconhecido')
+        
+        if (errorMessage.includes('Invalid login credentials') || errorMessage.includes('incorretos') || errorMessage.includes('inválidas')) {
+          setError("Email ou senha incorretos.")
+        } else if (errorMessage.includes('Email not confirmed') || errorMessage.includes('confirme seu email')) {
+          setError("Por favor, confirme seu email antes de fazer login.")
+        } else {
+          setError(errorMessage || "Erro ao fazer login.")
+        }
+        return
       }
 
-      if (result.success) {
-        // Sucesso - salvar dados do usuário e redirecionar
-        localStorage.setItem('user', JSON.stringify(result.user))
-        alert(`Login realizado com sucesso! Bem-vindo!`)
-        window.location.href = "/dashboard"
-      } else {
-        // Erro do servidor
-        setError(result.message || "Email ou senha incorretos.")
-      }
-    } catch (error) {
-      // Erro de conexão - usar fallback
-      console.log('Erro de conexão, usando simulação:', error)
-      
-      // Fallback: simulação local
-      if (email && password) {
-        alert(`Login simulado realizado! Bem-vindo!`)
+      // Sucesso - redirecionar
+      if (data?.user || data?.success) {
+        // Aguardar um pouco para o estado ser atualizado
         setTimeout(() => {
           window.location.href = "/dashboard"
-        }, 500)
-      } else {
-        setError("Por favor, preencha todos os campos.")
+        }, 100)
       }
-    } finally {
-      setIsLoading(false)
+
+    } catch (error: any) {
+      console.error('Erro no login:', error)
+      setError("Ocorreu um erro inesperado. Tente novamente.")
     }
   }
 
@@ -80,11 +73,12 @@ export function LoginForm() {
           <Input
             id="email"
             type="email"
-            placeholder=""
+            placeholder="seu.email@aluno.unb.br"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             className="pl-10 bg-gray-100 border-gray-200 focus:bg-white"
+            disabled={loading}
           />
         </div>
       </div>
@@ -98,11 +92,12 @@ export function LoginForm() {
           <Input
             id="password"
             type="password"
-            placeholder=""
+            placeholder="Digite sua senha"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             className="pl-10 bg-gray-100 border-gray-200 focus:bg-white"
+            disabled={loading}
           />
         </div>
       </div>
@@ -110,10 +105,19 @@ export function LoginForm() {
       <Button
         type="submit"
         className="w-full bg-[#00A651] hover:bg-[#008f47] text-white font-semibold py-6 rounded-lg"
-        disabled={isLoading}
+        disabled={loading}
       >
-        {isLoading ? "Entrando..." : "Entrar"}
+        {loading ? "Entrando..." : "Entrar"}
       </Button>
+      
+      <div className="text-center">
+        <a 
+          href="/recuperar-senha" 
+          className="text-sm text-[#003D7A] hover:underline"
+        >
+          Esqueceu sua senha?
+        </a>
+      </div>
     </form>
   )
 }

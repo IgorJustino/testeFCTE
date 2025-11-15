@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function NewProductPage() {
-  const [images, setImages] = useState<string[]>([])
+  const [images, setImages] = useState<File[]>([])
+  const [imagesPreviews, setImagesPreviews] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
@@ -30,7 +31,7 @@ export default function NewProductPage() {
 
     try {
       // Buscar usuário logado
-      const userData = localStorage.getItem('currentUser')
+      const userData = localStorage.getItem('django_user')
       if (!userData) {
         alert('Você precisa estar logado para publicar um produto!')
         window.location.href = '/entrar'
@@ -39,30 +40,44 @@ export default function NewProductPage() {
 
       const user = JSON.parse(userData)
 
+      // Preparar FormData para envio com imagens
+      const productFormData = new FormData()
+      productFormData.append('title', formData.title)
+      productFormData.append('description', formData.description)
+      productFormData.append('price', formData.price)
+      productFormData.append('campus', formData.location)
+      productFormData.append('status', 'disponivel')
+      productFormData.append('seller_id', user.id.toString()) // Adicionar seller_id
+
+      // Adicionar imagens ao FormData
+      images.forEach((image, index) => {
+        if (index === 0) {
+          productFormData.append('image', image)
+        } else {
+          productFormData.append(`image_${index + 1}`, image)
+        }
+      })
+
+      console.log('=== DEBUG FRONTEND ===')
+      console.log('User:', user)
+      console.log('FormData entries:')
+      for (let [key, value] of productFormData.entries()) {
+        console.log(key, ':', value)
+      }
+
       // Enviar dados para a API Django
-      const response = await fetch('http://127.0.0.1:8004/api/products/create/', {
+      const response = await fetch('http://127.0.0.1:8000/api/products/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          price: formData.price,
-          category: formData.category,
-          condition: formData.condition,
-          location: formData.location,
-          user_id: user.id
-        }),
+        body: productFormData, // Não definir Content-Type para FormData
       })
 
       const result = await response.json()
 
-      if (result.success) {
-        alert(`Produto "${result.product.title}" criado com sucesso!`)
+      if (response.ok) {
+        alert(`Produto "${result.title}" criado com sucesso!`)
         window.location.href = "/dashboard"
       } else {
-        alert(result.message || "Erro ao criar produto.")
+        alert(result.error || "Erro ao criar produto.")
       }
     } catch (error) {
       console.error('Erro ao criar produto:', error)
@@ -82,13 +97,24 @@ export default function NewProductPage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      const newImages = Array.from(files).map((file) => URL.createObjectURL(file))
-      setImages([...images, ...newImages].slice(0, 5))
+      const newFiles = Array.from(files)
+      const newPreviews = newFiles.map((file) => URL.createObjectURL(file))
+      
+      // Manter máximo de 5 imagens
+      const totalFiles = [...images, ...newFiles].slice(0, 5)
+      const totalPreviews = [...imagesPreviews, ...newPreviews].slice(0, 5)
+      
+      setImages(totalFiles)
+      setImagesPreviews(totalPreviews)
     }
   }
 
   const removeImage = (index: number) => {
+    // Limpar URL do preview para evitar memory leak
+    URL.revokeObjectURL(imagesPreviews[index])
+    
     setImages(images.filter((_, i) => i !== index))
+    setImagesPreviews(imagesPreviews.filter((_, i) => i !== index))
   }
 
   return (
@@ -122,10 +148,10 @@ export default function NewProductPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {images.map((image, index) => (
+                  {imagesPreviews.map((imagePreview, index) => (
                     <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                       <img
-                        src={image || "/placeholder.svg"}
+                        src={imagePreview}
                         alt={`Produto ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
@@ -242,11 +268,11 @@ export default function NewProductPage() {
                       <SelectValue placeholder="Selecione o campus" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="darcy">Campus Darcy Ribeiro</SelectItem>
+                      <SelectItem value="darcy-ribeiro">Campus Darcy Ribeiro</SelectItem>
                       <SelectItem value="fcte">Campus FCTE</SelectItem>
+                      <SelectItem value="gama">Campus Gama</SelectItem>
                       <SelectItem value="ceilandia">Campus Ceilândia</SelectItem>
                       <SelectItem value="planaltina">Campus Planaltina</SelectItem>
-                      <SelectItem value="gama">Campus Gama</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

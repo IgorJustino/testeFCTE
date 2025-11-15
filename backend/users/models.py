@@ -1,53 +1,39 @@
-from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
+from django.db import models
 
 class UserProfile(models.Model):
-	"""Perfil estendido do usuário"""
-    
-	CAMPUS_CHOICES = [
-		('darcy', 'Campus Darcy Ribeiro'),
-		('fcte', 'Campus FCTE'),
-		('ceilandia', 'Campus Ceilândia'),
-		('planaltina', 'Campus Planaltina'),
-		('gama', 'Campus Gama'),
-	]
-    
-	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', verbose_name='Usuário')
-	avatar = models.ImageField('Avatar', upload_to='avatars/%Y/%m/%d/', blank=True, null=True)
-	bio = models.TextField('Biografia', blank=True)
-	course = models.CharField('Curso', max_length=200, blank=True)
-	campus = models.CharField('Campus', max_length=50, choices=CAMPUS_CHOICES)
-	phone = models.CharField('Telefone', max_length=20, blank=True)
-    
-	# Estatísticas
-	rating = models.DecimalField('Avaliação', max_digits=3, decimal_places=2, default=0.0)
-	review_count = models.IntegerField('Número de Avaliações', default=0)
-	total_sales = models.IntegerField('Total de Vendas', default=0)
-    
-	# Timestamps
-	member_since = models.DateTimeField('Membro desde', auto_now_add=True)
-	updated_at = models.DateTimeField('Atualizado em', auto_now=True)
-    
-	class Meta:
-		verbose_name = 'Perfil de Usuário'
-		verbose_name_plural = 'Perfis de Usuários'
-    
-	def __str__(self):
-		return f"Perfil de {self.user.username}"
+    CAMPUS_CHOICES = [
+        ('gama', 'Campus Gama'),
+        ('darcy-ribeiro', 'Campus Darcy Ribeiro'),
+        ('planaltina', 'Campus Planaltina'),
+        ('ceilandia', 'Campus Ceilândia'),
+    ]
 
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    campus = models.CharField(max_length=20, choices=CAMPUS_CHOICES)
+    bio = models.TextField(blank=True, null=True)
+    
+    # Campos de avatar - apenas URL (armazenamento no Supabase)
+    avatar_url = models.URLField(blank=True, null=True, help_text="URL do avatar no Supabase Storage")
+    avatar_path = models.CharField(max_length=500, blank=True, null=True, help_text="Caminho do avatar no storage para deleção")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-	"""Cria automaticamente um perfil quando um usuário é criado"""
-	if created:
-		UserProfile.objects.create(user=instance)
-
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-	"""Salva o perfil quando o usuário é salvo"""
-	if hasattr(instance, 'profile'):
-		instance.profile.save()
+    def __str__(self):
+        return f"{self.user.username} - {self.campus}"
+    
+    def get_avatar(self):
+        """Retorna URL do avatar ou placeholder"""
+        return self.avatar_url or "/placeholder-avatar.jpg"
+    
+    def delete_avatar(self):
+        """Remove avatar do storage quando necessário"""
+        if self.avatar_path:
+            from products.storage_helper import storage_helper
+            storage_helper.delete_from_supabase(self.avatar_path, bucket_name="avatars")
+    
+    def delete(self, *args, **kwargs):
+        """Override para deletar avatar antes de remover perfil"""
+        self.delete_avatar()
+        super().delete(*args, **kwargs)

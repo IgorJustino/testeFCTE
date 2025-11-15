@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button"
 import { ProductCard } from "@/components/product-card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { apiClient } from "@/lib/api"
 import { useState, useEffect } from "react"
 
 interface Product {
   id: string
   title: string
   price: number
+  image_1?: string
+  images?: string[]
   category: string
   condition: string
-  images?: string[]
 }
 
 export default function MarketplacePage() {
@@ -29,19 +29,26 @@ export default function MarketplacePage() {
   const loadProducts = async () => {
     try {
       setIsLoading(true)
-      const result: any = await apiClient.getProducts()
+      const response = await fetch('http://localhost:8000/api/products/')
+      const data = await response.json()
       
-      // Converter dados da API para formato esperado
-      const formattedProducts = result.results?.map((product: any) => ({
-        id: product.id.toString(),
-        title: product.title,
-        price: parseFloat(product.price),
-        category: product.category,
-        condition: product.condition,
-        images: product.images || ["/placeholder.svg"]
-      })) || []
-      
-      setProducts(formattedProducts)
+      if (response.ok) {
+        // Transformar os dados do Django para o formato esperado
+        const formattedProducts = data.results.map((product: any) => ({
+          id: product.id.toString(),
+          title: product.title,
+          price: parseFloat(product.price),
+          image: product.main_image || product.image_url,
+          images: product.all_images || [],
+          category: product.category || 'Outros',
+          condition: product.condition || 'Não especificado'
+        }))
+        setProducts(formattedProducts)
+        console.log('Produtos carregados:', formattedProducts)
+      } else {
+        console.error('Erro na resposta da API:', data)
+        setProducts([])
+      }
     } catch (error) {
       console.error('Erro ao carregar produtos:', error)
       setProducts([])

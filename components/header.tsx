@@ -11,6 +11,10 @@ export function Header() {
   const { user, isLoggedIn, logout } = useAuth()
   const unreadMessages = 3
 
+  // Debug
+  console.log('Header: user =', user)
+  console.log('Header: isLoggedIn =', isLoggedIn)
+
   const handleLogout = () => {
     logout()
     window.location.href = "/"
